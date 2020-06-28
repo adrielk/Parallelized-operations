@@ -23,6 +23,7 @@ const int blocksPerGrid = 128;//imin(32, (N + threadsPerBlock - 1) / threadsPerB
 
 using namespace std;
 
+cudaError_t matrixOperation(int* c, const int* a, const int* b, unsigned int arrSize, int operation);
 //any advantages with mapping directly to strucutre of matrix? We're just representing 2D matrix using 1D array...
 //it would be difficult to do the above since we want the operations to occur over abitrarily large matrices
 //this can definitely be optimzied by elminating redundant calculations
@@ -73,10 +74,13 @@ int main()
     const int rows = 10;
     const int cols = 10;
     int inc = 0;
-    int outputs[rows * cols];
-    int intMatrix[rows*cols];
-    int intMatrix2[rows*cols];
+
+    //Must allocate host memory first before calling kernel.
+    int* outputs = (int*)malloc(N * sizeof(int));
+    int* intMatrix = (int*)malloc(N * sizeof(int));
+    int* intMatrix2 = (int*)malloc(N * sizeof(int));
     int operation = 0;
+    
     cout << "Enter which operation (1 = add, 2 = subtract, 3 = multiply, 4 = divide)" << endl;
     cin >> operation;
     //populated 2D array with data
@@ -112,16 +116,35 @@ cudaError_t matrixOperation(int* c, const int* a, const int* b, unsigned int arr
         goto Error;
     }
 
-    //Copy input vectors from host memory to GPU buffers
-    cudaStatus = cudaMemcpy(dev_a, a, sizeof(float) * N, cudaMemcpyHostToDevice);
+    //Allocate GPU buffers for three vectors (two input, one output)
+    cudaStatus = cudaMalloc((void**)&dev_c, N * sizeof(int));
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
+        fprintf(stderr, "cudaMalloc failed! 1");
         goto Error;
     }
 
-    cudaStatus = cudaMemcpy(dev_b, b, sizeof(float) * N, cudaMemcpyHostToDevice);
+    cudaStatus = cudaMalloc((void**)&dev_a, N * sizeof(int));
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
+        fprintf(stderr, "cudaMalloc failed! 2");
+        goto Error;
+    }
+
+    cudaStatus = cudaMalloc((void**)&dev_b, N * sizeof(int));
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaMalloc failed! 3");
+        goto Error;
+    }
+
+    //Copy input vectors from host memory to GPU buffers
+    cudaStatus = cudaMemcpy(dev_a, a, sizeof(int) * N, cudaMemcpyHostToDevice);
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaMemcpy failed! 1");
+        goto Error;
+    }
+
+    cudaStatus = cudaMemcpy(dev_b, b, sizeof(int) * N, cudaMemcpyHostToDevice);
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaMemcpy failed! 2");
         goto Error;
     }
     switch (operation) {
@@ -140,9 +163,9 @@ cudaError_t matrixOperation(int* c, const int* a, const int* b, unsigned int arr
 
     }
     //copies result to host so we can use it.
-    cudaStatus = cudaMemcpy(c, dev_c, sizeof(float) * N, cudaMemcpyDeviceToHost);
+    cudaStatus = cudaMemcpy(c, dev_c, sizeof(int) * N, cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
+        fprintf(stderr, "cudaMemcpy failed! 3");
         goto Error;
     }
 
