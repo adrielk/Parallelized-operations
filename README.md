@@ -1,2 +1,2 @@
-# Cuda-Matrix-Operations
- Simple matrix operations parallelized using Cuda C.
+# Parallelized-operations
+ Simple vector operations parallelized using Cuda C.
